@@ -1,0 +1,9 @@
+# The raw voter roll and the unencrypted database stay on your computer.
+/kkp_csv.zip
+/data/
+*.db
+*.db.tmp
+web/node_modules/
+web/dist/
+.DS_Store
+# web/public/data/*.bin IS committed: it is the encrypted data the static site downloads.

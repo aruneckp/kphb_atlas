@@ -1,0 +1,12 @@
+CREATE INDEX ix_v_part ON voters(part_no, serial_no);
+CREATE INDEX ix_v_fam ON voters(family_id);
+CREATE INDEX ix_v_hh ON voters(household_id);
+CREATE INDEX ix_v_epic ON voters(epic);
+CREATE INDEX ix_v_age ON voters(age);
+CREATE INDEX ix_v_part_sec ON voters(part_no, section_no);
+CREATE INDEX ix_v_review ON voters(needs_review);
+CREATE INDEX ix_f_part ON families(part_no, size);
+CREATE INDEX ix_f_size ON families(size);
+CREATE INDEX ix_h_part ON households(part_no, size);
+CREATE INDEX ix_h_size ON households(size);
+CREATE INDEX ix_g_fam ON ghosts(family_id);
