@@ -1,8 +1,8 @@
 // Drill-down links: every chart element opens /drill with the slice it stands for.
 import { href, GLOBAL } from "./route.js";
 
-export const SEGMENT = ["rel", "review", "reason", "dup", "linked", "fam_size", "hh_size", "ocr", "deleted", "nohouse", "sec", "q", "field"];
-export const ALL_KEYS = [...GLOBAL, ...SEGMENT];
+export const SEGMENT = ["apt", "in_apt", "rel", "review", "reason", "dup", "linked", "fam_size", "hh_size", "ocr", "deleted", "nohouse", "sec", "q", "field"];
+export const ALL_KEYS = [...GLOBAL, ...SEGMENT, "apt_name"];
 
 export const slice = (params) => Object.fromEntries(ALL_KEYS.filter((k) => params[k]).map((k) => [k, params[k]]));
 
@@ -33,6 +33,8 @@ export function chips(params, meta) {
     add("part", `PS ${params.part}${s ? ` · ${s.locality}` : ""}`);
   }
   if (params.sec) add("sec", `Section ${params.sec}`);
+  if (params.apt) add("apt", `Apartment: ${params.apt_name || "#" + params.apt}`);
+  if (params.in_apt === "1") add("in_apt", "Living in apartments");
   if (params.rel) add("rel", REL[params.rel] || params.rel);
   if (params.review === "1") add("review", "Entries to check");
   if (params.reason) add("reason", `Reason: ${params.reason}`);
@@ -51,6 +53,7 @@ export function chips(params, meta) {
 export function without(params, key) {
   const p = { ...slice(params) };
   if (key === "age") { delete p.age_min; delete p.age_max; } else delete p[key];
+  if (key === "apt") delete p.apt_name;
   if (key === "part") delete p.sec;
   if (key === "q") delete p.field;
   if (key === "review") delete p.reason;

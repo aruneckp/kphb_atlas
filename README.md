@@ -72,6 +72,10 @@ Inside the border the app shows, switchable in the side panel:
 - **Localities**: shaded areas with names; labels appear as you zoom in.
 - **Station areas**: the land closest to each polling station (Voronoi cells cut at the border).
 - **Station circles**: one circle per station, sized by voters. In a drill-down, **Streets** shows sections.
+- **Apartments**: 152 apartment blocks and gated communities (about 14,000 voters), found from building
+  names in house numbers (Rainbow Vistas, Malaysian Township, SS Grandure…) and from many flat numbers
+  under one door number. Also a table under Areas → Apartments; click any to drill down. Name the
+  unnamed blocks in `scripts/apartment_names.csv` (door,name) and rebuild.
 
 Colour by voters, women per 1,000 men, average age, first-time %, 18–29 %, 60+ % or entries to check.
 Hover for numbers, click to pin an area in the side panel, then *Drill down*. There are buttons for

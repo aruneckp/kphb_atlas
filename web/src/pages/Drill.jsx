@@ -29,11 +29,12 @@ export default function Drill({ params, meta }) {
   const br = useApi("/api/breakdown", p);
   const sts = useApi("/api/stations");
   const secs = useApi("/api/sections");
+  const apts = useApi("/api/apartments");
   const vs = useApi("/api/voters", { ...p, page: params.page, size: 50 });
-  const [layer, setLayer] = useState(params.part ? "sections" : params.locality ? "station" : "locality");
+  const [layer, setLayer] = useState(params.apt ? "apartments" : params.part ? "sections" : params.locality ? "station" : "locality");
   const [colour, setColour] = useState("share");
   const [allSt, setAllSt] = useState(false);
-  useEffect(() => { setLayer(params.part ? "sections" : params.locality ? "station" : "locality"); }, [params.part, params.locality]);
+  useEffect(() => { setLayer(params.apt ? "apartments" : params.part ? "sections" : params.locality ? "station" : "locality"); }, [params.part, params.locality, params.apt]);
   const stations = sts.data || [];
 
   const level = params.part ? null : params.locality ? "part" : params.police ? "locality" : params.mandal ? "police_en" : "locality";
@@ -97,7 +98,8 @@ export default function Drill({ params, meta }) {
           }>
           {br.data && stations.length && secs.data
             ? <AtlasMap stations={stations} rows={new Map(br.data.stations.map((r) => [r.part_no, r]))} sections={br.data.sections} secInfo={secs.data}
-              params={params} layer={layer} onLayer={setLayer} metric={colour} height={540} />
+              params={params} layer={layer} onLayer={setLayer} metric={colour} height={540}
+              apartments={apts.data || null} aptRows={br.data.apartments ? new Map(br.data.apartments.map((r) => [r.apt, r])) : null} />
             : <Loading label="Placing voters on the map" />}
         </Panel>
         <div className="drill-grid">

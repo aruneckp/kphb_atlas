@@ -13,6 +13,7 @@ const LEVELS = [
   ["mandal", "Mandals"],
   ["pin", "PIN codes"],
   ["section", "Sections (streets)"],
+  ["apartments", "Apartments"],
 ];
 
 const sumUp = (list) => {
@@ -103,12 +104,22 @@ export default function Areas({ params }) {
   const level = params.level || "tree";
   const g = globals(params);
   const sts = useApi(level === "tree" ? "/api/stations" : null, g);
-  const ar = useApi(level !== "tree" ? "/api/areas" : null, { ...g, level });
-  const data = level === "tree" ? sts.data : ar.data;
-  const error = sts.error || ar.error;
+  const ar = useApi(level !== "tree" && level !== "apartments" ? "/api/areas" : null, { ...g, level });
+  const ap = useApi(level === "apartments" ? "/api/apartments" : null, g);
+  const data = level === "tree" ? sts.data : level === "apartments" ? ap.data : ar.data;
+  const error = sts.error || ar.error || ap.error;
   const filterKey = { locality: "locality", police: "police", mandal: "mandal", pin: "pin" }[level];
   const max = data ? Math.max(1, ...data.map((r) => r.voters)) : 1;
-  const cols = level === "section" ? [
+  const cols = level === "apartments" ? [
+    { key: "name", label: "Apartment / community", render: (r) => <a href={drill(params, { apt: r.id, apt_name: r.name })}>{r.name}</a> },
+    { key: "kind", label: "Found by", render: (r) => (r.kind === "Apartment block" ? "Flat numbers" : r.kind === "Community" ? "Name on roll" : `Name (${r.kind})`) },
+    { key: "locality", label: "Locality" },
+    { key: "part_no", label: "PS", num: true },
+    { key: "voters", label: "Voters", num: true, render: (r) => <span className="nm">{num(r.voters)}<Meter value={r.voters} max={max} /></span> },
+    { key: "doors", label: "Flats / doors", num: true },
+    { key: "ratio", label: "Women / 1,000 men", num: true, value: (r) => r.female / (r.male || 1), render: (r) => ratio(r.female, r.male) },
+    { key: "avg_age", label: "Avg age", num: true, render: (r) => r.avg_age },
+  ] : level === "section" ? [
     { key: "area", label: "PS-section", value: (r) => r.part_no * 1000 + r.section_no, render: (r) => <a href={drill(params, { part: r.part_no, sec: r.section_no })}>{r.part_no}-{r.section_no}</a> },
     { key: "name", label: "Section", render: (r) => <span lang="te">{r.name}</span> },
     { key: "locality", label: "Locality" },
@@ -144,9 +155,12 @@ export default function Areas({ params }) {
       {error && <ErrorBox error={error} />}
       {!data && !error && <Loading />}
       {data && level === "tree" && <Tree stations={data} params={params} />}
-      {data && level !== "tree" && (
-        <SortTable rows={data.map((r) => ({ ...r, key: r.area }))} cols={cols} initial={{ key: "voters", dir: -1 }} limit={2000}
-          rowHref={(r) => (level === "section" ? drill(params, { part: r.part_no, sec: r.section_no }) : drill(params, { [filterKey]: r.area }))} />
+      {data && level !== "tree" && (<>
+        {level === "apartments" && <p className="note">Apartments are found two ways: the building name written in the voter's house number (e.g. Rainbow Vistas, SS Grandure), or many flat numbers under one door number (e.g. 14-20-677-301, -302 …). Blocks found only by flat numbers show their door number - add real names in scripts/apartment_names.csv.</p>}
+        <SortTable rows={data.map((r) => ({ ...r, key: r.area ?? r.id }))} cols={cols} initial={{ key: "voters", dir: -1 }} limit={2000}
+          rowHref={(r) => (level === "apartments" ? drill(params, { apt: r.id, apt_name: r.name })
+            : level === "section" ? drill(params, { part: r.part_no, sec: r.section_no }) : drill(params, { [filterKey]: r.area }))} />
+      </>
       )}
     </div>
   );

@@ -119,7 +119,7 @@ function Controls({ border, full, setFull }) {
  * layer: "locality" | "station" | "circles" | "sections"; metric: key of METRICS
  */
 export default function AtlasMap({ stations, rows = null, sections = null, secInfo = null, params = {}, layer = "locality", metric = "n",
-  height = 560, children, onLayer, focusPart, panel = true, extraActions }) {
+  height = 560, children, onLayer, focusPart, panel = true, extraActions, apartments = null, aptRows = null }) {
   const [geo, setGeo] = useState(null);
   const [sel, setSel] = useState(null);
   const [hover, setHover] = useState(null);
@@ -128,7 +128,8 @@ export default function AtlasMap({ stations, rows = null, sections = null, secIn
   useEffect(() => { loadGeo().then(setGeo).catch(() => setGeo(false)); }, []);
   const dark = typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches;
   const areas = useMemo(() => (geo && stations?.length ? buildAreas(stations, geo) : null), [geo, stations]);
-  const M = METRICS[metric] || METRICS.n;
+  // age-band measures are only known per station, so apartments fall back to voter counts for those
+  const M = (layer === "apartments" && METRICS[metric]?.full) ? METRICS.n : METRICS[metric] || METRICS.n;
   const byPart = useMemo(() => new Map((stations || []).map((s) => [s.part_no, s])), [stations]);
 
   // area totals for the active layer
@@ -145,18 +146,34 @@ export default function AtlasMap({ stations, rows = null, sections = null, secIn
     return m;
   }, [stations, rows, layer]);
 
-  const values = useMemo(() => [...totals.values()].map((a) => M.v(a)), [totals, M]);
+  // apartments: one total per building (the slice's voters there, or everyone)
+  const aptTotals = useMemo(() => {
+    const m = new Map();
+    if (layer !== "apartments" || !apartments) return m;
+    for (const ap of apartments) {
+      const r = aptRows ? aptRows.get(ap.id) : null;
+      if (aptRows && !r) continue;
+      const o = blank();
+      o.base = ap.voters; o.stations = 0; o.doors = ap.doors; o.apt = ap;
+      if (r) { o.n = r.n; o.male = r.male; o.female = r.female; if (r.avg_age) { o.ageSum = r.avg_age * r.n; o.ageN = r.n; } }
+      else { o.n = ap.voters; o.male = ap.male; o.female = ap.female; if (ap.avg_age) { o.ageSum = ap.avg_age * ap.voters; o.ageN = ap.voters; } }
+      m.set(ap.id, o);
+    }
+    return m;
+  }, [layer, apartments, aptRows]);
+
+  const values = useMemo(() => [...(layer === "apartments" ? aptTotals : totals).values()].map((a) => M.v(a)), [totals, aptTotals, layer, M]);
   const breaks = useMemo(() => quantiles(values), [values]);
   const flat = new Set(values.filter(Number.isFinite).map((v) => Math.round(v * 10))).size <= 1;
   const color = (v) => (!Number.isFinite(v) ? (dark ? "#2a3747" : "#e4e8ee") : RAMP[flat ? 2 : breaks.filter((b) => v > b).length]);
 
   const features = useMemo(() => {
     if (!areas || layer === "circles" || layer === "sections") return null;
-    const src = layer === "locality" ? areas.localities : areas.cells;
+    const src = layer === "locality" || layer === "apartments" ? areas.localities : areas.cells;
     const feats = [];
     for (const [key, multi] of src) {
-      const a = totals.get(key);
-      feats.push({ type: "Feature", properties: { key, label: layer === "locality" ? key : `PS ${key}`, a: a || null },
+      const a = layer === "apartments" ? null : totals.get(key);
+      feats.push({ type: "Feature", properties: { key, label: layer === "locality" || layer === "apartments" ? key : `PS ${key}`, a: a || null },
         geometry: { type: "MultiPolygon", coordinates: multi } });
     }
     return { type: "FeatureCollection", features: feats };
@@ -178,6 +195,9 @@ export default function AtlasMap({ stations, rows = null, sections = null, secIn
 
   const info = sel || hover; // a pinned area stays in the panel; hovering only previews when nothing is pinned
   const style = (f) => {
+    if (layer === "apartments") {   // localities as a quiet backdrop behind the apartment markers
+      return { pane: "areas", weight: 0.8, color: dark ? "#3a4a5e" : "#b8c3d0", fillColor: dark ? "#1b2838" : "#e9eef4", fillOpacity: 0.55, interactive: false };
+    }
     const a = f.properties.a;
     const on = sel && sel.key === f.properties.key;
     return { pane: "areas", weight: on ? 3 : 1, color: on ? "#d7262f" : dark ? "#0e1722" : "#ffffff", opacity: 1,
@@ -186,6 +206,7 @@ export default function AtlasMap({ stations, rows = null, sections = null, secIn
   const featKey = `${layer}:${metric}:${rows ? rows.size : "all"}:${sel?.key ?? ""}:${breaks.join(",")}:${dark}`;
   const onEach = (f, lyr) => {
     const p = f.properties;
+    if (layer === "apartments") { lyr.bindTooltip(p.label, { sticky: true, className: "atlas-tip" }); return; }
     lyr.on({
       mouseover: (e) => { e.target.setStyle({ weight: 3, color: dark ? "#ffffff" : "#14233a" }); e.target.bringToFront(); setHover({ key: p.key, label: p.label, a: p.a }); },
       mouseout: (e) => { e.target.setStyle(style(f)); setHover(null); },
@@ -221,7 +242,7 @@ export default function AtlasMap({ stations, rows = null, sections = null, secIn
             </CircleMarker>
           ))}
           {features && <GeoJSON key={featKey} data={features} style={style} onEachFeature={onEach} />}
-          {features && layer === "locality" && placeLabels(features.features, zoom).map(({ key, at }) => (
+          {features && (layer === "locality" || layer === "apartments") && placeLabels(features.features, zoom).map(({ key, at }) => (
             <CircleMarker key={`t${key}:${zoom}`} center={at} radius={0} pane="border" interactive={false}>
               <Tooltip permanent direction="center" className="loc-label">{key}</Tooltip>
             </CircleMarker>
@@ -262,6 +283,25 @@ export default function AtlasMap({ stations, rows = null, sections = null, secIn
               );
             });
           })()}
+          {layer === "apartments" && apartments && (() => {
+            const amax = Math.max(1, ...[...aptTotals.values()].map((a) => a.n));
+            const big = new Set([...aptTotals.entries()].sort((x, y) => y[1].n - x[1].n).slice(0, zoom >= 15 ? 60 : zoom >= 14 ? 25 : 10).map(([id]) => id));
+            return apartments.map((ap) => {
+              const a = aptTotals.get(ap.id);
+              if (!a) return null;
+              const on = sel && sel.key === `apt${ap.id}`;
+              return (
+                <CircleMarker key={`a${ap.id}`} center={[ap.lat, ap.lng]} pane="dots" radius={4 + 13 * Math.sqrt(a.n / amax)}
+                  pathOptions={{ color: on ? "#d7262f" : dark ? "#e8eef4" : "#14233a", weight: on ? 3 : 1.4, fillColor: color(M.v(a)), fillOpacity: 0.9 }}
+                  eventHandlers={{ click: () => setSel({ key: `apt${ap.id}`, label: ap.name, a, apt: ap }),
+                    mouseover: () => !sel && setHover({ key: `apt${ap.id}`, label: ap.name, a, apt: ap }), mouseout: () => setHover(null) }}>
+                  <Tooltip direction="top" offset={[0, -6]} className={big.has(ap.id) ? "apt-label" : "atlas-tip"} permanent={big.has(ap.id)}>
+                    {big.has(ap.id) ? ap.name.replace(/^Apartment block /, "Block ") : `${ap.name} · ${num(a.n)} voters`}
+                  </Tooltip>
+                </CircleMarker>
+              );
+            });
+          })()}
           {children}
         </MapContainer>
         <div className="atlas-legend" aria-label={`Legend: ${M.label}`}>
@@ -280,12 +320,24 @@ export default function AtlasMap({ stations, rows = null, sections = null, secIn
         <aside className="atlas-panel" aria-live="polite">
           {onLayer && (
             <div className="seg-toggle atlas-layers" role="radiogroup" aria-label="Show areas as">
-              {[["locality", "Localities"], ["station", "Station areas"], ["circles", "Station circles"], ...(sections ? [["sections", "Streets"]] : [])].map(([k, l]) => (
+              {[["locality", "Localities"], ["station", "Station areas"], ["circles", "Station circles"], ...(apartments ? [["apartments", "Apartments"]] : []), ...(sections ? [["sections", "Streets"]] : [])].map(([k, l]) => (
                 <div key={k}><button type="button" role="radio" aria-checked={layer === k} className={layer === k ? "on" : ""} onClick={() => { setSel(null); onLayer(k); }}>{l}</button></div>
               ))}
             </div>
           )}
-          {!info ? (
+          {!info && layer === "apartments" ? (
+            <div className="atlas-empty">
+              <h3>Apartments &amp; communities</h3>
+              <p>{num(aptTotals.size)} found · {num([...aptTotals.values()].reduce((t, a) => t + a.n, 0))} voters. Circle size shows voters; click one to pin it here.</p>
+              <ol className="apt-top">
+                {[...aptTotals.values()].sort((x, y) => y.n - x.n).slice(0, 12).map((a) => (
+                  <li key={a.apt.id}><button type="button" className="linkish" onClick={() => setSel({ key: `apt${a.apt.id}`, label: a.apt.name, a, apt: a.apt })}>{a.apt.name}</button>
+                    <span>{num(a.n)}</span></li>
+                ))}
+              </ol>
+              <p className="note">Found from building names and flat numbers in the roll; positions are near the polling station their residents use.</p>
+            </div>
+          ) : !info ? (
             <div className="atlas-empty">
               <h3>Kukatpally (AC 46)</h3>
               <p>Hover over an area to see its numbers; click to pin it here and drill down.</p>
@@ -298,12 +350,15 @@ export default function AtlasMap({ stations, rows = null, sections = null, secIn
             <div>
               <p className="atlas-kicker">{sel ? "Selected" : "Under the pointer"}</p>
               <h3>{info.label}{layer === "station" || layer === "circles" ? <small> · {byPart.get(info.key)?.locality}</small> : null}</h3>
-              {layer !== "locality" && <p className="atlas-sub" lang="te">{byPart.get(info.key)?.name}</p>}
-              {info.a ? <AreaStats a={info.a} rows={rows} /> : <p>No voters from this view here.</p>}
+              {info.apt ? (
+                <p className="atlas-sub">{info.apt.kind === "Apartment block" ? `Flats numbered ${info.apt.door}-…` : info.apt.kind} · {info.apt.locality} · votes at PS {info.apt.part_no} · {num(info.apt.doors)} flats/doors</p>
+              ) : layer !== "locality" && <p className="atlas-sub" lang="te">{byPart.get(info.key)?.name}</p>}
+              {info.a ? <AreaStats a={info.a} rows={rows || info.apt ? rows || true : null} /> : <p>No voters from this view here.</p>}
               {sel && info.a && (
                 <div className="atlas-actions">
-                  <a className="btn primary" href={drill(params, drillPatch(info))}>Drill down</a>
-                  {layer !== "locality" && <a className="btn" href={link(`/stations/${info.key}`, params)}>Station page</a>}
+                  <a className="btn primary" href={drill(params, info.apt ? { apt: info.apt.id, apt_name: info.apt.name, part: "", sec: "" } : drillPatch(info))}>Drill down</a>
+                  {info.apt ? <a className="btn" href={link(`/stations/${info.apt.part_no}`, params)}>Station page</a>
+                    : layer !== "locality" && <a className="btn" href={link(`/stations/${info.key}`, params)}>Station page</a>}
                   {extraActions && extraActions(info, layer)}
                   <button type="button" className="btn" onClick={() => setSel(null)}>Clear</button>
                 </div>
@@ -322,12 +377,13 @@ function AreaStats({ a, rows }) {
   return (
     <>
       <dl className="atlas-stats">
-        <div><dt>{rows ? "Voters in this view" : "Voters"}</dt><dd>{num(a.n)}</dd></div>
-        {rows && <div><dt>Share of all voters here</dt><dd>{pct(a.n, a.base)}</dd></div>}
+        <div><dt>{rows && rows !== true ? "Voters in this view" : "Voters"}</dt><dd>{num(a.n)}</dd></div>
+        {rows && rows !== true && <div><dt>Share of all voters here</dt><dd>{pct(a.n, a.base)}</dd></div>}
         <div><dt>Women per 1,000 men</dt><dd>{ratio(a.female, a.male)}</dd></div>
         <div><dt>Average age</dt><dd>{a.ageN ? (a.ageSum / a.ageN).toFixed(1) : "–"}</dd></div>
         {a.stations > 0 && <div><dt>Polling stations</dt><dd>{num(a.stations)}</dd></div>}
         {!rows && a.families > 0 && <div><dt>Families</dt><dd>{num(a.families)}</dd></div>}
+        {a.doors > 0 && <div><dt>Flats / doors</dt><dd>{num(a.doors)}</dd></div>}
       </dl>
       <div className="gbar-track atlas-g" aria-label={`${num(a.male)} men, ${num(a.female)} women`}>
         <span className="gbar-m" style={{ width: `${(100 * a.male) / (a.male + a.female || 1)}%` }} />

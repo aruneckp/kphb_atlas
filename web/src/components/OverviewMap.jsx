@@ -10,8 +10,10 @@ export default function OverviewMap({ params }) {
   const filtered = Object.keys(p).length > 0;
   const br = useApi(filtered ? "/api/breakdown" : null, p);
   const sts = useApi("/api/stations");
+  const apts = useApi("/api/apartments");
   const [layer, setLayer] = useState("locality");
   if (!sts.data || (filtered && !br.data)) return <Loading label="Drawing the constituency" />;
   const rows = filtered ? new Map(br.data.stations.map((r) => [r.part_no, r])) : null;
-  return <AtlasMap stations={sts.data} rows={rows} params={params} layer={layer} onLayer={setLayer} metric="n" height={480} />;
+  return <AtlasMap stations={sts.data} rows={rows} params={params} layer={layer} onLayer={setLayer} metric="n" height={480}
+    apartments={apts.data || null} aptRows={filtered && br.data.apartments ? new Map(br.data.apartments.map((r) => [r.apt, r])) : null} />;
 }

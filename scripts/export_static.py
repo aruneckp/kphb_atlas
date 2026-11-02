@@ -34,7 +34,7 @@ def main():
         "SELECT review_reason, count(*) n FROM voters WHERE review_reason <> '' GROUP BY 1 ORDER BY n DESC")]
     rix = {r: i + 1 for i, r in enumerate(reasons)}
 
-    cols = {k: [] for k in ("part", "serial", "sec", "page", "age", "fam", "hh", "gen", "link", "flags", "ocr", "reason",
+    cols = {k: [] for k in ("part", "serial", "sec", "page", "age", "fam", "hh", "gen", "link", "flags", "ocr", "reason", "apt",
                             "epic", "name", "rname", "house")}
     g, rel, how = [], [], []
     extra = {}  # sparse: duplicates and deletion notes
@@ -52,6 +52,7 @@ def main():
         cols["flags"].append(flags)
         cols["ocr"].append(int(round(v["ocr_conf"] * 10)) if v["ocr_conf"] is not None else 0)
         cols["reason"].append(rix.get(v["review_reason"], 0))
+        cols["apt"].append(v["apt_id"] if "apt_id" in v.keys() and v["apt_id"] else 0)
         # search keys, house keys and relatives not on the roll are rebuilt in the browser to keep the file small
         for k, src in (("epic", "epic"), ("name", "name"), ("rname", "rel_name"), ("house", "house")):
             cols[k].append(v[src] or "")
@@ -64,7 +65,9 @@ def main():
     voters = dict(v=1, n=n, cols=cols, g="".join(g), rel="".join(rel), how="".join(how), extra=extra, reasons=reasons)
     stations = [dict(r) for r in c.execute("SELECT * FROM stations ORDER BY part_no")]
     sections = [dict(r) for r in c.execute("SELECT * FROM sections ORDER BY part_no, section_no")]
-    summary = dict(v=1, meta=meta, stations=stations, sections=sections, reasons=reasons)
+    has_apt = c.execute("SELECT count(*) FROM sqlite_master WHERE name = 'apartments'").fetchone()[0]
+    apartments = [dict(r) for r in c.execute("SELECT * FROM apartments ORDER BY id")] if has_apt else []
+    summary = dict(v=1, meta=meta, stations=stations, sections=sections, reasons=reasons, apartments=apartments)
 
     for name, obj in (("summary.json", summary), ("voters.json", voters)):
         path = os.path.join(OUT, name)

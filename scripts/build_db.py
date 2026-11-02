@@ -481,6 +481,11 @@ def main():
     )
     db.executemany("INSERT INTO meta VALUES (?,?)", [(k, json.dumps(v, ensure_ascii=False)) for k, v in meta.items()])
 
+    import apartments
+    n_apt, n_in = apartments.build(db)
+    db.commit()
+    log(f"{n_apt} apartments / gated communities found, holding {n_in:,} voters")
+
     log("building search index")
     try:
         db.executescript(open(os.path.join(HERE, "fts.sql"), encoding="utf-8").read())

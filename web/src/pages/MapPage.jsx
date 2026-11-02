@@ -13,6 +13,7 @@ export default function MapPage({ params }) {
   const g = globals(params);
   delete g.part;
   const { data, error } = useApi("/api/stations", g);
+  const apts = useApi("/api/apartments", g);
   const [metric, setMetric] = useState(params.metric || "n");
   const [layer, setLayer] = useState(params.layer || "locality");
   const [edit, setEdit] = useState(null); // {part_no, lat, lng}
@@ -37,7 +38,7 @@ export default function MapPage({ params }) {
     <div className="page map-page">
       <div className="page-title">
         <h2>Kukatpally constituency map</h2>
-        <p>The red line is the official constituency border. Areas inside it are shaded by the measure you pick; hover for numbers, click to pin an area and drill down.</p>
+        <p>The red line is the official constituency border. Areas inside it are shaded by the measure you pick; hover for numbers, click to pin an area and drill down. Choose “Apartments” in the side panel to see gated communities and apartment blocks.</p>
       </div>
       <div className="toolbar">
         <label>Colour by
@@ -70,7 +71,7 @@ export default function MapPage({ params }) {
       </div>
       {msg && <p className="callout ok" role="status">{msg}</p>}
       {!data ? <div className="loading">Loading stations…</div> : (
-        <AtlasMap stations={list} params={params} layer={layer} onLayer={setLayer} metric={metric} height={640}
+        <AtlasMap stations={list} params={params} layer={layer} onLayer={setLayer} metric={metric} height={640} apartments={apts.data || null}
           focusPart={params.focus}
           extraActions={(sel, lyr) => (lyr !== "locality" && byPart.get(sel.key)
             ? <button type="button" className="btn" onClick={() => { const s = byPart.get(sel.key); setLayer("circles"); setEdit({ part_no: s.part_no, lat: s.lat, lng: s.lng }); }}>Move this pin</button>

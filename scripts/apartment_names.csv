@@ -1,0 +1,3 @@
+door,name
+# Fill in names you know for unnamed apartment blocks, then run: bash run.sh --rebuild
+# example: 14-20-677,My Apartment Name
