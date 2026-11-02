@@ -18,6 +18,8 @@ git add -A
 if git diff --cached --name-only | grep -E '(^|/)kkp_csv\.zip$|^data/|\.db$|(summary|voters)\.json$'; then
   echo "Stopped: raw voter data is staged (listed above). Nothing was pushed."; exit 1
 fi
+git rm -r -q --cached scripts/__pycache__ 2>/dev/null || true
+echo "Data being published: voters.bin packed $(date -r web/public/data/voters.bin '+%Y-%m-%d %H:%M' 2>/dev/null)"
 git commit -q -m "KPHB voter atlas: app and encrypted data" || echo "Nothing new to commit."
 # also check every earlier commit: a file committed once stays in the history and would be pushed too
 if git log --all --name-only --format= | sort -u | grep -E '(^|/)kkp_csv\.zip$|^data/|\.db$|(summary|voters)\.json$'; then

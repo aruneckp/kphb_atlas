@@ -4,7 +4,7 @@
 //   npm run pack -- --no-password                      (NOT for the internet: anyone could read it)
 // Reads ../data/static/{summary,voters}.json (from scripts/export_static.py) and writes public/data/*.bin
 import { gzipSync, constants } from "node:zlib";
-import { randomBytes, pbkdf2Sync, createCipheriv } from "node:crypto";
+import { randomBytes, pbkdf2Sync, createCipheriv, createHash } from "node:crypto";
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -42,6 +42,7 @@ mkdirSync(out, { recursive: true });
   }
 }
 
+const manifest = { built: new Date().toISOString() };
 for (const name of ["summary", "voters"]) {
   const file = join(src, `${name}.json`);
   if (!existsSync(file)) { console.error(`Missing ${file}. Run: python3 scripts/export_static.py`); process.exit(1); }
@@ -57,6 +58,9 @@ for (const name of ["summary", "voters"]) {
     body = Buffer.concat([Buffer.from("KPHB1"), salt, iv, enc]);
   }
   writeFileSync(join(out, `${name}.bin`), body);
+  manifest[name] = createHash("sha1").update(body).digest("hex").slice(0, 12);
   console.log(`${name}.bin  ${(body.length / 1e6).toFixed(1)} MB${plain ? "  (NOT encrypted)" : "  (encrypted)"}`);
 }
+// the app reads this first, so browsers fetch the new data at once instead of a cached copy
+writeFileSync(join(out, "manifest.json"), JSON.stringify(manifest));
 console.log(`Packed into ${out}. Next: npm run build`);

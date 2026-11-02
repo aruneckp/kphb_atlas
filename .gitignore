@@ -6,4 +6,6 @@
 web/node_modules/
 web/dist/
 .DS_Store
+__pycache__/
+*.pyc
 # web/public/data/*.bin IS committed: it is the encrypted data the static site downloads.

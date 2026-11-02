@@ -15,15 +15,19 @@ if [ ! -f kkp_csv.zip ] && [ -f backup/kkp_csv.zip.enc ]; then
   [ -d web/node_modules ] || (cd web && npm install)
   (cd web && KPHB_PASS="$KPHB_PASS" npm run restore)
 fi
+# rebuild the database when asked, when it is missing, or when the build scripts changed since it was made
+if [ -f data/kphb.db ] && [ -n "$(find scripts -name '*.py' -newer data/kphb.db 2>/dev/null)" ]; then
+  echo "Build scripts changed since the last build - rebuilding the database."; REBUILD=1
+fi
 if [ -n "$REBUILD" ] || [ ! -f data/kphb.db ]; then
   [ -f kkp_csv.zip ] || { echo "Put kkp_csv.zip in $(pwd) first."; exit 1; }
   python3 scripts/build_db.py
 fi
-if [ -n "$REBUILD" ] || [ ! -f data/static/voters.json ] || [ data/kphb.db -nt data/static/voters.json ]; then
+if [ -n "$REBUILD" ] || [ ! -f data/static/voters.json ] || [ data/kphb.db -nt data/static/voters.json ] || [ scripts/export_static.py -nt data/static/voters.json ]; then
   python3 scripts/export_static.py
 fi
 [ -d web/node_modules ] || (cd web && npm install)
-if [ -n "$REBUILD" ] || [ ! -f web/public/data/voters.bin ] || [ data/static/voters.json -nt web/public/data/voters.bin ]; then
+if [ -n "$REBUILD" ] || [ ! -f web/public/data/voters.bin ] || [ data/static/voters.json -nt web/public/data/voters.bin ] || [ data/static/summary.json -nt web/public/data/summary.bin ]; then
   if [ -z "$KPHB_PASS" ]; then
     read -r -s -p "Choose the password people will type to open the app (12+ characters): " KPHB_PASS; echo
   fi
@@ -31,6 +35,7 @@ if [ -n "$REBUILD" ] || [ ! -f web/public/data/voters.bin ] || [ data/static/vot
   (cd web && KPHB_PASS="$KPHB_PASS" npm run backup)   # encrypted copy of the raw roll, for rebuilding from GitHub
 fi
 (cd web && npm run check && npm run build)
+echo "Data packed: $(date -r web/public/data/voters.bin '+%Y-%m-%d %H:%M' 2>/dev/null || stat -c %y web/public/data/voters.bin)  ·  apartments: $(python3 -c "import sqlite3;print(sqlite3.connect('data/kphb.db').execute('select count(*) from apartments').fetchone()[0])" 2>/dev/null || echo '?')"
 echo
 echo "The app is plain files in web/dist (that folder is what goes on Render)."
 echo "Opening http://localhost:4173  - press Ctrl+C to stop."
