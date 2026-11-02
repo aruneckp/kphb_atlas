@@ -483,3 +483,67 @@ a.col:hover .col-bar { background: var(--metro); }
 .gate-logo { width: 48px; height: 48px; }
 .loadbar { position: fixed; left: 16px; bottom: 16px; z-index: 1000; background: var(--ink); color: var(--card); border-radius: 10px; padding: 10px 14px 12px; font-size: 0.88rem; min-width: 260px; box-shadow: 0 8px 24px rgb(0 0 0 / .25); overflow: hidden; }
 .loadbar i { position: absolute; left: 0; bottom: 0; height: 4px; background: var(--metro); transition: width .2s; }
+
+/* ------------------------------------------------------------ constituency atlas map */
+.atlas { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 0; border: 1px solid var(--rule); border-radius: var(--radius); overflow: hidden; background: var(--card); }
+.atlas.no-panel { grid-template-columns: minmax(0, 1fr); }
+.panel .atlas { margin: 0 -18px -16px; border: 0; border-top: 1px solid var(--rule); border-radius: 0; }
+.atlas-map { position: relative; min-height: 360px; }
+.atlas-full { position: fixed; inset: 0; z-index: 2000; border-radius: 0; grid-template-rows: 100%; }
+.atlas-full .atlas-map { height: 100% !important; }
+.tiles-muted { filter: grayscale(0.85) contrast(0.92) brightness(1.04); }
+.tiles-dark.tiles-muted { filter: invert(1) hue-rotate(180deg) brightness(0.8) contrast(0.9) grayscale(0.7); }
+.atlas-controls { pointer-events: none; }
+.atlas-controls .leaflet-control { pointer-events: auto; display: flex; flex-direction: column; gap: 6px; margin: 10px 10px 0 0; }
+.atlas-controls button {
+  font: inherit; font-size: 0.82rem; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--rule);
+  background: var(--card); color: var(--ink); cursor: pointer; box-shadow: 0 2px 6px rgb(0 0 0 / .12);
+}
+.atlas-controls button:hover { border-color: var(--metro); color: var(--metro); }
+.atlas-legend {
+  position: absolute; left: 10px; bottom: 22px; z-index: 800; max-width: min(560px, calc(100% - 20px));
+  background: color-mix(in srgb, var(--card) 92%, transparent); backdrop-filter: blur(6px);
+  border: 1px solid var(--rule); border-radius: 10px; padding: 8px 12px; font-size: 0.8rem; color: var(--ink-2);
+}
+.atlas-legend b { display: block; color: var(--ink); font-size: 0.84rem; margin-bottom: 4px; }
+.atlas-ramp { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.atlas-ramp i { display: inline-block; width: 18px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+.atlas-legend small { display: block; margin-top: 5px; font-size: 0.74rem; }
+.lg-border { display: inline-block; width: 18px; height: 0; border-top: 3px solid #d7262f; vertical-align: 3px; margin-right: 4px; }
+.leaflet-tooltip.ac-label {
+  background: none; border: 0; box-shadow: none; color: var(--ink-3); font-family: var(--font); font-size: 0.78rem;
+  font-weight: 600; letter-spacing: 0.02em; text-shadow: 0 0 3px var(--card), 0 0 3px var(--card);
+}
+.leaflet-tooltip.loc-label {
+  background: none; border: 0; box-shadow: none; padding: 0; color: #0d1b2e; font-family: var(--font); font-size: 0.74rem; font-weight: 650;
+  text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 2px #fff; white-space: nowrap;
+}
+.leaflet-tooltip.ac-label::before, .leaflet-tooltip.loc-label::before { display: none; }
+.z-far .leaflet-tooltip.loc-label { display: none; }
+.leaflet-tooltip.atlas-tip { font-family: var(--font); font-size: 0.82rem; border-radius: 8px; }
+.atlas-panel { border-left: 1px solid var(--rule); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; max-height: 100%; }
+.atlas-full .atlas-panel { max-height: 100vh; }
+.atlas-layers { flex-wrap: wrap; }
+.atlas-layers > div { border-radius: 8px; }
+.atlas-panel h3 { margin: 0; font-size: 1.25rem; line-height: 1.2; font-stretch: 85%; font-variation-settings: "wdth" 85; }
+.atlas-panel h3 small { font-size: 0.85rem; color: var(--ink-3); font-weight: 500; }
+.atlas-panel p { margin: 0; color: var(--ink-2); font-size: 0.9rem; }
+.atlas-kicker { font-size: 0.78rem !important; color: var(--metro) !important; font-weight: 600; }
+.atlas-sub { font-size: 0.82rem !important; }
+.atlas-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; margin: 10px 0 8px; }
+.atlas-stats dt { font-size: 0.76rem; color: var(--ink-3); }
+.atlas-stats dd { margin: 0; font-size: 1.35rem; font-weight: 720; font-stretch: 85%; font-variation-settings: "wdth" 85; }
+.atlas-g { height: 10px; margin-top: 4px; }
+.atlas-glabel { display: flex; gap: 14px; font-size: 0.8rem !important; margin-top: 4px !important; }
+.atlas-ages h4 { margin: 12px 0 4px; font-size: 0.86rem; }
+.atlas-age { display: grid; grid-template-columns: 44px 1fr 96px; gap: 8px; align-items: center; font-size: 0.8rem; padding: 2px 0; }
+.atlas-age span:last-child { text-align: right; color: var(--ink-2); }
+.atlas-age .hbar-track { height: 9px; }
+.atlas-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.atlas-empty h3 { margin-bottom: 4px; }
+.drill-grid { display: block; }
+@media (max-width: 1000px) {
+  .atlas { grid-template-columns: minmax(0, 1fr); }
+  .atlas-panel { border-left: 0; border-top: 1px solid var(--rule); }
+  .atlas-legend { bottom: 8px; font-size: 0.74rem; }
+}

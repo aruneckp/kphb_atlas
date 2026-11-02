@@ -5,7 +5,7 @@ import { num, pct, ratio } from "../lib/format.js";
 import { bandAges, chips, describe, drill, slice, without } from "../lib/drill.js";
 import { Columns, GenderBar, HBars, Meter, Pyramid } from "../components/charts.jsx";
 import { ErrorBox, Loading, Pager, Panel, SortTable, VoterTable } from "../components/ui.jsx";
-import SliceMap from "../components/SliceMap.jsx";
+import AtlasMap from "../components/AtlasMap.jsx";
 import DrillKpis from "../components/DrillKpis.jsx";
 
 // group station counts up to an area level
@@ -30,10 +30,10 @@ export default function Drill({ params, meta }) {
   const sts = useApi("/api/stations");
   const secs = useApi("/api/sections");
   const vs = useApi("/api/voters", { ...p, page: params.page, size: 50 });
-  const [layer, setLayer] = useState(params.part ? "sections" : "stations");
+  const [layer, setLayer] = useState(params.part ? "sections" : params.locality ? "station" : "locality");
   const [colour, setColour] = useState("share");
   const [allSt, setAllSt] = useState(false);
-  useEffect(() => { setLayer(params.part ? "sections" : "stations"); }, [params.part]);
+  useEffect(() => { setLayer(params.part ? "sections" : params.locality ? "station" : "locality"); }, [params.part, params.locality]);
   const stations = sts.data || [];
 
   const level = params.part ? null : params.locality ? "part" : params.police ? "locality" : params.mandal ? "police_en" : "locality";
@@ -84,30 +84,24 @@ export default function Drill({ params, meta }) {
       {!t ? <Loading /> : t.voters === 0 ? <div className="empty">No voters in this slice. Remove a filter above.</div> : <>
         <DrillKpis t={t} params={params} fam={sum.data.family_sizes} />
 
-        <div className="cols-2 map-first">
-          <Panel title="Where these voters are" note={layer === "sections"
-            ? "Each dot is a section (street) of a polling station. Street positions are approximate, set around their station."
-            : "Each circle is a polling station: size shows voters in this slice, colour shows the share or count."}
-            actions={
-              <div className="seg-toggle">
-                <div role="radiogroup" aria-label="Show">
-                  {[["stations", "Stations"], ["sections", "Streets"]].map(([k, l]) => (
-                    <button key={k} type="button" role="radio" aria-checked={layer === k} className={layer === k ? "on" : ""} onClick={() => setLayer(k)}>{l}</button>
-                  ))}
-                </div>
-                <div role="radiogroup" aria-label="Colour by">
-                  {[["share", "Share"], ["count", "Count"]].map(([k, l]) => (
-                    <button key={k} type="button" role="radio" aria-checked={colour === k} className={colour === k ? "on" : ""} onClick={() => setColour(k)}>{l}</button>
-                  ))}
-                </div>
+        <Panel title="Where these voters are" className="map-panel"
+          note="Shaded areas sit inside the official Kukatpally border. Pick how to show them on the right; colour by share shows where this group is a bigger part of the population."
+          actions={
+            <div className="seg-toggle">
+              <div role="radiogroup" aria-label="Colour by">
+                {[["share", "Share"], ["n", "Count"], ["ratio", "Women/men"], ["avg_age", "Age"]].map(([k, l]) => (
+                  <button key={k} type="button" role="radio" aria-checked={colour === k} className={colour === k ? "on" : ""} onClick={() => setColour(k)}>{l}</button>
+                ))}
               </div>
-            }>
-            {br.data && stations.length && secs.data
-              ? <SliceMap stations={stations} counts={br.data.stations} sections={br.data.sections} secInfo={secs.data}
-                params={params} layer={layer} colour={colour} height={520} />
-              : <Loading label="Placing voters on the map" />}
-          </Panel>
-          <div className="stack">
+            </div>
+          }>
+          {br.data && stations.length && secs.data
+            ? <AtlasMap stations={stations} rows={new Map(br.data.stations.map((r) => [r.part_no, r]))} sections={br.data.sections} secInfo={secs.data}
+              params={params} layer={layer} onLayer={setLayer} metric={colour} height={540} />
+            : <Loading label="Placing voters on the map" />}
+        </Panel>
+        <div className="drill-grid">
+          <div className="cols-3">
             <Panel title="Men and women" note="Click a colour to keep only that group.">
               <GenderBar male={t.male} female={t.female} third={t.third} hrefFor={(g) => drill(params, { gender: g })} />
             </Panel>

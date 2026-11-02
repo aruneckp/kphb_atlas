@@ -63,6 +63,21 @@ For each voter the roll prints one relative. Inside the same polling station the
 
 Gender and age must fit (a father at least 14 years older, etc.). If the relative isn't on the roll, siblings who name the same parent at the same door are still grouped. In this urban roll many parents live elsewhere, so ~21% of voters link to a relative on the roll. Treat families as a strong guide, not proof.
 
+## Map
+
+The Map page draws the **official Kukatpally (AC 46) border** and the neighbouring constituencies from
+`web/public/geo/constituencies.geojson` (DataMeet, CC BY 2.5 India, traced from ECI polling-station maps).
+Inside the border the app shows, switchable in the side panel:
+
+- **Localities**: shaded areas with names; labels appear as you zoom in.
+- **Station areas**: the land closest to each polling station (Voronoi cells cut at the border).
+- **Station circles**: one circle per station, sized by voters. In a drill-down, **Streets** shows sections.
+
+Colour by voters, women per 1,000 men, average age, first-time %, 18–29 %, 60+ % or entries to check.
+Hover for numbers, click to pin an area in the side panel, then *Drill down*. There are buttons for
+Fit Kukatpally and Full screen. Area shapes are estimates built from approximate station positions;
+the border itself is official. Stations that fall outside the border are moved just inside it.
+
 ## Map positions
 
 The roll has no coordinates. Streets (sections) are drawn on a small ring around their polling station. Each station starts near the **approximate centre of its locality** (`scripts/localities.py` - edit names/centres there). To improve:

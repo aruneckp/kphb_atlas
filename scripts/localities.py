@@ -58,6 +58,12 @@ POLICE = {
     "బేగంపేట్": ("Begumpet", (17.4470, 78.4650)),
 }
 
+# when a station's own name/address names no locality, it joins the main locality of its police station
+POLICE_LOCALITY = {
+    "KPHB": "KPHB Colony", "Kukatpally": "Kukatpally", "Allapur": "Allapur", "Balanagar": "Balanagar",
+    "Old Bowenpally": "Old Bowenpally", "Alwal": "Hasmathpet", "Begumpet": "Begumpet", "Sanath Nagar": "Fatehnagar",
+}
+
 MANDALS = {"కూకట్ పల్లి": "Kukatpally", "బాలానగర్": "Balanagar"}
 
 POST_OFFICES = {

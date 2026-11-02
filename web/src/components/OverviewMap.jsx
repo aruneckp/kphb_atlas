@@ -1,16 +1,17 @@
-import React from "react";
+import React, { useState } from "react";
 import { useApi } from "../lib/api.js";
 import { slice } from "../lib/drill.js";
-import SliceMap from "./SliceMap.jsx";
+import AtlasMap from "./AtlasMap.jsx";
 import { Loading } from "./ui.jsx";
 
-// Map for the overview: same slice as the page filters.
+// Map for the overview: constituency border with localities shaded by voters in the current filters.
 export default function OverviewMap({ params }) {
   const p = slice(params);
-  const br = useApi("/api/breakdown", p);
+  const filtered = Object.keys(p).length > 0;
+  const br = useApi(filtered ? "/api/breakdown" : null, p);
   const sts = useApi("/api/stations");
-  const secs = useApi("/api/sections");
-  if (!br.data || !sts.data || !secs.data) return <Loading label="Placing stations" />;
-  return <SliceMap stations={sts.data} counts={br.data.stations} sections={br.data.sections} secInfo={secs.data}
-    params={params} layer={params.part ? "sections" : "stations"} colour="count" height={420} />;
+  const [layer, setLayer] = useState("locality");
+  if (!sts.data || (filtered && !br.data)) return <Loading label="Drawing the constituency" />;
+  const rows = filtered ? new Map(br.data.stations.map((r) => [r.part_no, r])) : null;
+  return <AtlasMap stations={sts.data} rows={rows} params={params} layer={layer} onLayer={setLayer} metric="n" height={480} />;
 }

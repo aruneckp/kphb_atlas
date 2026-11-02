@@ -369,6 +369,9 @@ def process_part(db, part, voters, s, ids, tot, how_count, loc_slots, exact):
             nm = secs.most_common(1)[0][0]
             m = next((n, ll) for n, _, ll in L.LOCALITIES if n == nm)
     police_en, police_ll = L.POLICE.get(s["police"], (s["police"], L.CENTRE))
+    if not m and police_en in L.POLICE_LOCALITY:
+        nm = L.POLICE_LOCALITY[police_en]
+        m = next(((n, ll) for n, _, ll in L.LOCALITIES if n == nm), None)
     loc_name, ll = m if m else (police_en + " PS area", police_ll)
     k = loc_slots[loc_name]          # spread stations of one locality on a spiral so pins don't overlap
     loc_slots[loc_name] += 1
