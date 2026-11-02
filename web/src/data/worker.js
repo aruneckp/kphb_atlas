@@ -6,8 +6,19 @@ let engine = null;
 let password = "";
 let votersReady = null;
 
+let manifest = null;
+async function version(name) {
+  if (manifest === null) {
+    try { manifest = await (await fetch(`${self.KPHB_BASE || ""}data/manifest.json`, { cache: "no-store" })).json(); }
+    catch { manifest = {}; }
+  }
+  const v = manifest[name.replace(".bin", "")];
+  return v ? `?v=${v}` : "";
+}
+
 async function fetchBytes(name, onProgress) {
-  const r = await fetch(`${self.KPHB_BASE || ""}data/${name}`, { cache: "default" });
+  // the version tag changes whenever the data is packed again, so a new build is never hidden by the browser cache
+  const r = await fetch(`${self.KPHB_BASE || ""}data/${name}${await version(name)}`, { cache: "default" });
   if (!r.ok) throw new Error(`Could not download ${name} (${r.status}). Was the data packed? Run: cd web && npm run pack`);
   const total = +r.headers.get("Content-Length") || 0;
   if (!r.body || !onProgress) return new Uint8Array(await r.arrayBuffer());
@@ -60,6 +71,10 @@ self.onmessage = async (e) => {
     try {
       const summary = await unlock(await fetchBytes("summary.bin"));
       engine = new Engine(summary);
+      try {
+        const geo = await (await fetch(`${self.KPHB_BASE || ""}geo/constituencies.geojson`)).json();
+        engine.fitInside(geo);
+      } catch { /* map border is optional */ }
       engine.applyPins(m.pins);
       post({ type: "opened", locked: !!password });
       votersReady = (async () => {

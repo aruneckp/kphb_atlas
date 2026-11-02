@@ -19,7 +19,36 @@ export class Engine {
     this.secByKey = new Map(this.sections.map((x) => [`${x.part_no}-${x.section_no}`, x]));
     this.ready = false;
     this.cache = new Map();
-    this.pre = summary.pre || null; // overview numbers worked out when the data was packed
+    this.pre = summary.pre || null;
+    this.apartments = (summary.apartments || []).map((a) => ({ ...a, partsW: Object.entries(JSON.parse(a.parts || "{}")).map(([p, n]) => [+p, n]) }));
+    this.aptById = new Map(this.apartments.map((a) => [a.id, a])); // overview numbers worked out when the data was packed
+  }
+
+  // Keep estimated station positions inside the official constituency border:
+  // a station that falls outside is walked toward the middle of Kukatpally until it is inside.
+  fitInside(fc) {
+    const main = fc?.features?.find((f) => f.properties.main);
+    if (!main) return;
+    const polys = main.geometry.type === "Polygon" ? [main.geometry.coordinates] : main.geometry.coordinates;
+    const inside = (lat, lng) => polys.some((poly) => {
+      const ring = poly[0];
+      let c = false;
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const [xi, yi] = ring[i], [xj, yj] = ring[j];
+        if ((yi > lat) !== (yj > lat) && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) c = !c;
+      }
+      return c;
+    });
+    const [clat, clng] = main.properties.label;
+    this.boundaryMoved = 0;
+    for (const s of this.stations) {
+      if (s.geo_source === "saved" || inside(s.lat, s.lng)) continue;
+      let t = 0;
+      while (t < 1 && !inside(s.lat + (clat - s.lat) * t, s.lng + (clng - s.lng) * t)) t += 0.02;
+      t = Math.min(1, t + 0.04); // a little margin inside the border
+      s.lat += (clat - s.lat) * t; s.lng += (clng - s.lng) * t;
+      this.boundaryMoved++;
+    }
   }
 
   applyPins(pins) {
@@ -37,6 +66,7 @@ export class Engine {
     this.part = I(c.part); this.serial = I(c.serial); this.sec = I(c.sec); this.page = I(c.page);
     this.age = I(c.age); this.fam = I(c.fam); this.hh = I(c.hh); this.gen = I(c.gen); this.link = I(c.link);
     this.flags = I(c.flags); this.ocr = I(c.ocr); this.reason = I(c.reason);
+    this.apt = c.apt ? I(c.apt) : new Int32Array(d.n);
     this.epic = c.epic; this.name = c.name; this.rname = c.rname; this.house = c.house;
     this.g = d.g; this.rel = d.rel; this.how = d.how; this.extra = d.extra || {};
     progress("Preparing search");
@@ -126,6 +156,7 @@ export class Engine {
       rel_name_en: readable(this.rname[i]), house: this.house[i], age: this.age[i] || null, gender: this.g[i],
       needs_review: this.flags[i] & 1, review_reason: this.reasons[this.reason[i] - 1] || "",
       family_id: this.fam[i], household_id: this.hh[i], link_how: HOW_NAME[this.how[i]], locality: s?.locality,
+      apt_id: this.apt?.[i] || 0, apartment: this.aptById.get(this.apt?.[i])?.name || "",
     };
   }
 
@@ -228,6 +259,8 @@ export class Engine {
       tests.push((i) => ok.has(this.reason[i]));
     }
     if (p.dup === "1") tests.push((i) => this.flags[i] & 2);
+    if (/^\d+$/.test(p.apt || "")) { const a = +p.apt; tests.push((i) => this.apt[i] === a); }
+    if (p.in_apt === "1") tests.push((i) => this.apt[i] > 0);
     if (p.deleted === "1") tests.push((i) => this.flags[i] & 4);
     if (p.nohouse === "1") tests.push((i) => !this.house[i]);
     if (p.linked === "1") tests.push((i) => this.link[i] > 0);
@@ -283,7 +316,7 @@ export class Engine {
       ...this.meta,
       stations: this.stations.map((s) => ({ part_no: s.part_no, name: s.name, locality: s.locality, police_en: s.police_en, mandal_en: s.mandal_en, pin: s.pin, voters: s.voters })),
       localities: uniq((s) => s.locality), police: uniq((s) => s.police_en), mandals: uniq((s) => s.mandal_en), pins: uniq((s) => s.pin),
-      reasons: this.reasons, auth: false, static: true,
+      reasons: this.reasons, auth: false, static: true, apartments_count: this.apartments.length,
       tiles: { url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png", dark: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors', invert_dark: true },
     };
@@ -523,9 +556,16 @@ export class Engine {
 
   breakdown(p) {
     const idx = this.matches(p);
-    const st = new Map(), sec = new Map();
+    const st = new Map(), sec = new Map(), apt = new Map();
     for (const i of idx) {
       const pn = this.part[i];
+      const ap = this.apt[i];
+      if (ap) {
+        let a = apt.get(ap);
+        if (!a) apt.set(ap, (a = { apt: ap, n: 0, male: 0, female: 0, ageSum: 0, ageN: 0 }));
+        a.n++; if (this.g[i] === "M") a.male++; else if (this.g[i] === "F") a.female++;
+        if (this.age[i]) { a.ageSum += this.age[i]; a.ageN++; }
+      }
       let o = st.get(pn);
       if (!o) st.set(pn, (o = { part_no: pn, n: 0, male: 0, female: 0, ageSum: 0, ageN: 0 }));
       o.n++; if (this.g[i] === "M") o.male++; else if (this.g[i] === "F") o.female++;
@@ -538,7 +578,24 @@ export class Engine {
     return {
       stations: [...st.values()].map(({ ageSum, ageN, ...o }) => ({ ...o, avg_age: ageN ? r1(ageSum / ageN) : null })),
       sections: [...sec.values()],
+      apartments: [...apt.values()].map(({ ageSum, ageN, ...o }) => ({ ...o, avg_age: ageN ? r1(ageSum / ageN) : null })),
     };
+  }
+
+  // Apartments and gated communities, placed near the polling stations their voters use.
+  apartmentsList(p = {}) {
+    const parts = new Set(this.partsFor({ ...p, part: "" }));
+    const slot = new Map();
+    return this.apartments.filter((a) => parts.has(a.part_no) && (!p.part || String(a.part_no) === String(p.part))).map((a) => {
+      let lat = 0, lng = 0, w = 0;
+      for (const [pn, n] of a.partsW) { const s = this.byPart.get(pn); if (s) { lat += s.lat * n; lng += s.lng * n; w += n; } }
+      lat /= w || 1; lng /= w || 1;
+      const k = slot.get(a.part_no) || 0;
+      slot.set(a.part_no, k + 1);
+      const ang = (k + 1) * 2.39996, r = 0.00045 * Math.sqrt(k + 1); // spread blocks of one station so they don't overlap
+      return { ...a, partsW: undefined, lat: lat + r * Math.sin(ang), lng: lng + r * Math.cos(ang),
+        station: this.byPart.get(a.part_no)?.name };
+    });
   }
 
   sectionsAll() {
@@ -559,7 +616,7 @@ export class Engine {
 
   // ---------------------------------------------------------------- router
   needsVoters(path, p = {}) {
-    if (/^\/api\/(meta|stations|areas|sections)$/.test(path)) return false;
+    if (/^\/api\/(meta|stations|areas|sections|apartments)$/.test(path)) return false;
     // the whole-constituency overview is pre-computed, so it shows before the voter list arrives
     return !(this.pre && Object.keys(p).length === 0 && (path === "/api/summary" || path === "/api/breakdown"));
   }
@@ -570,6 +627,7 @@ export class Engine {
     if (path === "/api/stations") return this.stationsList(p);
     if (path === "/api/areas") return this.areas(p);
     if (path === "/api/sections") return this.sectionsAll();
+    if (path === "/api/apartments") return this.apartmentsList(p);
     if ((m = /^\/api\/station\/(\d+)$/.exec(path))) return this.station(+m[1]);
     if (!this.ready && this.pre && Object.keys(p).length === 0) {
       if (path === "/api/summary") return this.pre.summary;
