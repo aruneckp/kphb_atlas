@@ -98,6 +98,17 @@ The map background uses free OpenStreetMap tiles, which need no key. (CARTO's ma
 for an API key in August 2026 and showed an "API KEY REQUIRED" banner, so they are no longer the default.)
 The street map needs internet; the voter data is never sent anywhere.
 
+## What is stored in Git
+
+| File | Size | In Git? |
+|---|---|---|
+| `web/public/data/summary.bin`, `voters.bin` | ~10 MB | Yes - gzip + AES-256 encrypted, read by the app |
+| `backup/kkp_csv.zip.enc` | ~20 MB | Yes - encrypted copy of the raw roll, so a fresh clone can rebuild everything |
+| `kkp_csv.zip`, `data/` (kphb.db 312 MB, exports) | - | Never - raw, unencrypted voter data stays on your computer |
+
+On a new computer: `git clone …`, then `bash run.sh` - it restores `kkp_csv.zip` from the backup with your
+password and rebuilds the database. Manual: `cd web && npm run backup` / `npm run restore` (password via `KPHB_PASS`).
+
 ## Deploy on Render (Static Site)
 
 1. Run `bash run.sh` once, so `web/public/data/*.bin` exists, encrypted with your password.

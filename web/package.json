@@ -8,7 +8,9 @@
     "build": "vite build",
     "preview": "vite preview --port 4173",
     "pack": "node scripts/pack.mjs",
-    "check": "node scripts/check.mjs"
+    "check": "node scripts/check.mjs",
+    "backup": "node scripts/backup.mjs",
+    "restore": "node scripts/backup.mjs --restore"
   },
   "dependencies": {
     "@fontsource-variable/anek-telugu": "5.2.5",
